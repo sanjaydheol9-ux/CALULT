@@ -1,0 +1,2561 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>S.G.P.A. // RETRO ENGINE v3.0</title>
+    <meta name="description"
+        content="Ultimate 90s Retro SGPA Calculator — Real-time grade processing with CRT terminal aesthetics.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&family=VT323&display=swap"
+        rel="stylesheet">
+    <style>
+        /* ============================================
+           90s RETRO CRT DESIGN SYSTEM — ENHANCED
+           ============================================ */
+        :root {
+            --crt-green: #39ff14;
+            --crt-green-dark: #1a7a0a;
+            --crt-amber: #ffb000;
+            --crt-cyan: #00e5ff;
+            --crt-magenta: #ff00ff;
+            --crt-red: #ff003c;
+            --crt-pink: #ff6ec7;
+            --crt-blue: #4d4dff;
+            --crt-white: #e0ffe0;
+            --bg-black: #0a0a0a;
+            --bg-dark: #111111;
+            --bg-card: #0d1a0d;
+            --border-green: rgba(57, 255, 20, 0.3);
+            --glow-green: rgba(57, 255, 20, 0.15);
+            --scanline-opacity: 0.06;
+            --pixel-font: 'Press Start 2P', monospace;
+            --mono-font: 'Share Tech Mono', monospace;
+            --terminal-font: 'VT323', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* ---- BOOT SCREEN ---- */
+        #boot-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 10000;
+            background: var(--bg-black);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-family: var(--terminal-font);
+            color: var(--crt-green);
+            transition: opacity 0.8s ease;
+            overflow: hidden;
+        }
+
+        #boot-screen.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #boot-text {
+            font-size: 1.4rem;
+            max-width: 700px;
+            width: 90%;
+            line-height: 1.8;
+            white-space: pre-wrap;
+            text-shadow: 0 0 8px var(--crt-green);
+        }
+
+        #boot-screen .cursor-blink {
+            display: inline-block;
+            width: 10px;
+            height: 20px;
+            background: var(--crt-green);
+            animation: blink-cursor 0.6s step-end infinite;
+            vertical-align: middle;
+            margin-left: 2px;
+        }
+
+        @keyframes blink-cursor {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0;
+            }
+        }
+
+        /* ---- MAIN BODY ---- */
+        body {
+            font-family: var(--mono-font);
+            background-color: var(--bg-black);
+            color: var(--crt-green);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* ---- CRT OVERLAY + SCANLINES ---- */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: repeating-linear-gradient(0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, var(--scanline-opacity)) 2px,
+                    rgba(0, 0, 0, var(--scanline-opacity)) 4px);
+            pointer-events: none;
+            z-index: 9999;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.5) 100%);
+            pointer-events: none;
+            z-index: 9998;
+        }
+
+        /* ---- STATIC NOISE BG ---- */
+        .static-noise {
+            position: fixed;
+            inset: 0;
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 9997;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            background-size: 128px 128px;
+            animation: noise-shift 0.5s steps(5) infinite;
+        }
+
+        @keyframes noise-shift {
+            0% {
+                transform: translate(0, 0);
+            }
+
+            25% {
+                transform: translate(-2px, 1px);
+            }
+
+            50% {
+                transform: translate(1px, -1px);
+            }
+
+            75% {
+                transform: translate(-1px, 2px);
+            }
+
+            100% {
+                transform: translate(2px, -2px);
+            }
+        }
+
+        /* ============================================
+           MATRIX RAIN CANVAS
+           ============================================ */
+        #matrix-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.12;
+        }
+
+        /* ============================================
+           FLOATING GRID BACKGROUND
+           ============================================ */
+        .grid-bg {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            background-image:
+                linear-gradient(rgba(57, 255, 20, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(57, 255, 20, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            animation: grid-scroll 20s linear infinite;
+        }
+
+        @keyframes grid-scroll {
+            0% {
+                transform: translate(0, 0);
+            }
+
+            100% {
+                transform: translate(60px, 60px);
+            }
+        }
+
+        /* ============================================
+           FLOATING ORBS
+           ============================================ */
+        .floating-orbs {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            animation: orb-float linear infinite;
+        }
+
+        .orb:nth-child(1) {
+            width: 300px;
+            height: 300px;
+            background: rgba(57, 255, 20, 0.06);
+            top: 10%;
+            left: 5%;
+            animation-duration: 25s;
+        }
+
+        .orb:nth-child(2) {
+            width: 250px;
+            height: 250px;
+            background: rgba(0, 229, 255, 0.05);
+            top: 60%;
+            right: 10%;
+            animation-duration: 30s;
+            animation-delay: -5s;
+        }
+
+        .orb:nth-child(3) {
+            width: 200px;
+            height: 200px;
+            background: rgba(255, 0, 255, 0.04);
+            bottom: 20%;
+            left: 40%;
+            animation-duration: 20s;
+            animation-delay: -10s;
+        }
+
+        .orb:nth-child(4) {
+            width: 180px;
+            height: 180px;
+            background: rgba(255, 176, 0, 0.04);
+            top: 30%;
+            right: 30%;
+            animation-duration: 35s;
+            animation-delay: -15s;
+        }
+
+        @keyframes orb-float {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            25% {
+                transform: translate(80px, -60px) scale(1.2);
+            }
+
+            50% {
+                transform: translate(-40px, 80px) scale(0.8);
+            }
+
+            75% {
+                transform: translate(60px, 40px) scale(1.1);
+            }
+
+            100% {
+                transform: translate(0, 0) scale(1);
+            }
+        }
+
+        /* ============================================
+           HORIZONTAL SCAN BEAM
+           ============================================ */
+        .scan-beam {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--crt-green), transparent);
+            opacity: 0.15;
+            z-index: 9996;
+            pointer-events: none;
+            animation: scan-beam-move 8s linear infinite;
+        }
+
+        @keyframes scan-beam-move {
+            0% {
+                top: -3px;
+            }
+
+            100% {
+                top: 100vh;
+            }
+        }
+
+        /* ---- CONTAINER ---- */
+        .container {
+            max-width: 1300px;
+            margin: auto;
+            padding: 30px 20px 80px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ============================================
+           HEADER / HUD
+           ============================================ */
+        .hud {
+            border: 2px solid var(--crt-green);
+            background: linear-gradient(180deg, rgba(57, 255, 20, 0.03) 0%, transparent 100%);
+            padding: 25px 35px;
+            margin-bottom: 30px;
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+            box-shadow:
+                0 0 15px var(--glow-green),
+                inset 0 0 30px rgba(57, 255, 20, 0.02);
+            animation: hud-appear 0.8s ease-out;
+        }
+
+        @keyframes hud-appear {
+            0% {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hud::before {
+            content: '◤';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            color: var(--crt-green);
+            font-size: 0.8rem;
+        }
+
+        .hud::after {
+            content: '◢';
+            position: absolute;
+            bottom: -2px;
+            right: -2px;
+            color: var(--crt-green);
+            font-size: 0.8rem;
+        }
+
+        .hud-titles h1 {
+            font-family: var(--pixel-font);
+            font-size: 1.3rem;
+            color: var(--crt-green);
+            text-shadow: 0 0 20px var(--crt-green), 0 0 40px rgba(57, 255, 20, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            line-height: 1.6;
+            animation: text-flicker 4s infinite;
+        }
+
+        @keyframes text-flicker {
+
+            0%,
+            97%,
+            100% {
+                opacity: 1;
+            }
+
+            98% {
+                opacity: 0.85;
+            }
+
+            99% {
+                opacity: 0.95;
+            }
+        }
+
+        .hud-titles .subtitle {
+            font-family: var(--terminal-font);
+            font-size: 1.1rem;
+            color: var(--crt-amber);
+            margin-top: 8px;
+            text-shadow: 0 0 10px rgba(255, 176, 0, 0.4);
+            animation: subtitle-type 1.5s steps(40) 1s both;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        @keyframes subtitle-type {
+            0% {
+                width: 0;
+            }
+
+            100% {
+                width: 100%;
+            }
+        }
+
+        .version-tag {
+            font-family: var(--pixel-font);
+            font-size: 0.55rem;
+            color: var(--crt-cyan);
+            border: 1px solid var(--crt-cyan);
+            padding: 4px 10px;
+            display: inline-block;
+            margin-top: 8px;
+            text-shadow: 0 0 5px var(--crt-cyan);
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 5px rgba(0, 229, 255, 0.2);
+            }
+
+            50% {
+                box-shadow: 0 0 15px rgba(0, 229, 255, 0.5);
+            }
+        }
+
+        /* Master SGPA Display */
+        .master-sgpa-box {
+            text-align: center;
+            min-width: 200px;
+        }
+
+        .master-sgpa {
+            font-family: var(--pixel-font);
+            font-size: 3.8rem;
+            color: var(--crt-green);
+            text-shadow:
+                0 0 20px var(--crt-green),
+                0 0 60px rgba(57, 255, 20, 0.4),
+                0 0 100px rgba(57, 255, 20, 0.15);
+            line-height: 1;
+            transition: all 0.3s ease;
+            position: relative;
+            animation: sgpa-breathe 3s ease-in-out infinite;
+        }
+
+        @keyframes sgpa-breathe {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.02);
+            }
+        }
+
+        .master-label {
+            font-family: var(--pixel-font);
+            font-size: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            color: var(--crt-amber);
+            margin-top: 12px;
+            text-shadow: 0 0 8px rgba(255, 176, 0, 0.3);
+        }
+
+        /* ============================================
+           STATUS BAR
+           ============================================ */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(57, 255, 20, 0.15);
+            background: rgba(57, 255, 20, 0.02);
+            padding: 10px 20px;
+            margin-bottom: 25px;
+            font-family: var(--terminal-font);
+            font-size: 1rem;
+            color: var(--crt-amber);
+            flex-wrap: wrap;
+            gap: 10px;
+            animation: status-slide 0.6s ease-out 0.3s both;
+        }
+
+        @keyframes status-slide {
+            0% {
+                opacity: 0;
+                transform: translateX(-40px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .status-bar .stat {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-bar .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--crt-green);
+            box-shadow: 0 0 8px var(--crt-green);
+            animation: dot-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes dot-pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(0.8);
+            }
+        }
+
+        /* ============================================
+           CONTROLS
+           ============================================ */
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            flex-wrap: wrap;
+            gap: 12px;
+            animation: controls-fade 0.6s ease-out 0.5s both;
+        }
+
+        @keyframes controls-fade {
+            0% {
+                opacity: 0;
+                transform: translateY(15px);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .btn-retro {
+            font-family: var(--pixel-font);
+            font-size: 0.65rem;
+            padding: 14px 25px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.15s ease;
+            border: none;
+            outline: none;
+            overflow: hidden;
+        }
+
+        /* Button shine sweep animation */
+        .btn-retro::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -60%;
+            width: 30%;
+            height: 200%;
+            background: rgba(255, 255, 255, 0.15);
+            transform: skewX(-20deg);
+            transition: left 0.5s ease;
+        }
+
+        .btn-retro:hover::after {
+            left: 130%;
+        }
+
+        .btn-add {
+            background: var(--crt-green);
+            color: #000;
+            box-shadow:
+                4px 4px 0px var(--crt-green-dark),
+                0 0 15px var(--glow-green);
+        }
+
+        .btn-add:hover {
+            transform: translate(-2px, -2px);
+            box-shadow:
+                6px 6px 0px var(--crt-green-dark),
+                0 0 25px rgba(57, 255, 20, 0.3);
+        }
+
+        .btn-add:active {
+            transform: translate(2px, 2px);
+            box-shadow:
+                2px 2px 0px var(--crt-green-dark),
+                0 0 10px var(--glow-green);
+        }
+
+        .btn-calculate {
+            background: var(--crt-amber);
+            color: #000;
+            box-shadow:
+                4px 4px 0px #a07000,
+                0 0 15px rgba(255, 176, 0, 0.15);
+        }
+
+        .btn-calculate:hover {
+            transform: translate(-2px, -2px);
+            box-shadow:
+                6px 6px 0px #a07000,
+                0 0 25px rgba(255, 176, 0, 0.3);
+        }
+
+        .btn-calculate:active {
+            transform: translate(2px, 2px);
+            box-shadow:
+                2px 2px 0px #a07000,
+                0 0 10px rgba(255, 176, 0, 0.15);
+        }
+
+        .btn-reset {
+            background: transparent;
+            color: var(--crt-red);
+            border: 2px solid var(--crt-red);
+            box-shadow: 0 0 10px rgba(255, 0, 60, 0.1);
+        }
+
+        .btn-reset:hover {
+            background: var(--crt-red);
+            color: #000;
+            box-shadow: 0 0 20px rgba(255, 0, 60, 0.3);
+        }
+
+        /* ============================================
+           SUBJECT CARDS — ENHANCED CYBERPUNK STYLE
+           ============================================ */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+            gap: 24px;
+        }
+
+        .card {
+            position: relative;
+            padding: 3px;
+            background: linear-gradient(135deg,
+                    var(--crt-green),
+                    var(--crt-cyan),
+                    var(--crt-magenta),
+                    var(--crt-green));
+            background-size: 400% 400%;
+            animation: card-enter 0.5s ease-out, border-gradient 8s ease infinite;
+            overflow: visible;
+            border: none;
+        }
+
+        .card-inner {
+            background: linear-gradient(180deg, rgba(10, 20, 10, 0.97) 0%, rgba(5, 10, 5, 0.99) 100%);
+            padding: 22px;
+            position: relative;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        @keyframes border-gradient {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            25% {
+                background-position: 100% 50%;
+            }
+
+            50% {
+                background-position: 100% 100%;
+            }
+
+            75% {
+                background-position: 0% 100%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        @keyframes card-enter {
+            0% {
+                opacity: 0;
+                transform: translateY(30px) scale(0.9) rotateX(10deg);
+            }
+
+            60% {
+                transform: translateY(-5px) scale(1.02) rotateX(0deg);
+            }
+
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1) rotateX(0deg);
+            }
+        }
+
+        /* Animated scan line inside card */
+        .card-inner::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--crt-green), var(--crt-cyan), transparent);
+            animation: scan-line 3s linear infinite;
+        }
+
+        /* Holographic shimmer */
+        .card-inner::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg,
+                    transparent 30%,
+                    rgba(57, 255, 20, 0.02) 45%,
+                    rgba(0, 229, 255, 0.02) 50%,
+                    rgba(255, 0, 255, 0.02) 55%,
+                    transparent 70%);
+            animation: holographic-shimmer 6s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes holographic-shimmer {
+            0% {
+                transform: rotate(0deg) translate(-10%, -10%);
+            }
+
+            50% {
+                transform: rotate(2deg) translate(10%, 10%);
+            }
+
+            100% {
+                transform: rotate(0deg) translate(-10%, -10%);
+            }
+        }
+
+        @keyframes scan-line {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .card:hover {
+            box-shadow:
+                0 0 25px rgba(57, 255, 20, 0.2),
+                0 0 50px rgba(0, 229, 255, 0.1),
+                inset 0 0 20px rgba(57, 255, 20, 0.02);
+            transform: translateY(-4px);
+            transition: all 0.3s ease;
+        }
+
+        /* Card corner decorations */
+        .card-corner {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            z-index: 5;
+        }
+
+        .card-corner--tl {
+            top: 6px;
+            left: 6px;
+            border-top: 2px solid var(--crt-cyan);
+            border-left: 2px solid var(--crt-cyan);
+        }
+
+        .card-corner--tr {
+            top: 6px;
+            right: 6px;
+            border-top: 2px solid var(--crt-cyan);
+            border-right: 2px solid var(--crt-cyan);
+        }
+
+        .card-corner--bl {
+            bottom: 6px;
+            left: 6px;
+            border-bottom: 2px solid var(--crt-cyan);
+            border-left: 2px solid var(--crt-cyan);
+        }
+
+        .card-corner--br {
+            bottom: 6px;
+            right: 6px;
+            border-bottom: 2px solid var(--crt-cyan);
+            border-right: 2px solid var(--crt-cyan);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed var(--border-green);
+            position: relative;
+        }
+
+        .card-number {
+            font-family: var(--pixel-font);
+            font-size: 0.6rem;
+            color: var(--crt-cyan);
+            text-shadow: 0 0 8px var(--crt-cyan);
+            position: relative;
+            padding-left: 18px;
+        }
+
+        /* Animated dot before module number */
+        .card-number::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 8px;
+            height: 8px;
+            background: var(--crt-cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--crt-cyan);
+            animation: dot-pulse 2s ease-in-out infinite;
+        }
+
+        .btn-delete {
+            font-family: var(--pixel-font);
+            font-size: 0.5rem;
+            background: transparent;
+            border: 1px solid rgba(255, 0, 60, 0.3);
+            color: var(--crt-red);
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-delete:hover {
+            background: var(--crt-red);
+            color: #000;
+            box-shadow: 0 0 15px rgba(255, 0, 60, 0.4);
+            transform: scale(1.05);
+        }
+
+        /* ---- CARD INPUTS — ENHANCED ---- */
+        .input-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-family: var(--terminal-font);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--crt-amber);
+            text-shadow: 0 0 5px rgba(255, 176, 0, 0.2);
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid var(--border-green);
+            color: var(--crt-green);
+            padding: 12px 14px;
+            font-family: var(--mono-font);
+            font-size: 1rem;
+            transition: all 0.25s ease;
+            outline: none;
+            width: 100%;
+            position: relative;
+        }
+
+        input[type="text"]:focus,
+        input[type="number"]:focus {
+            border-color: var(--crt-cyan);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.15), inset 0 0 10px rgba(0, 229, 255, 0.03);
+            text-shadow: 0 0 5px var(--crt-green);
+            transform: scale(1.01);
+        }
+
+        input::placeholder {
+            color: rgba(57, 255, 20, 0.25);
+        }
+
+        /* ---- SCORES SECTION — ENHANCED ---- */
+        .scores-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 14px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(57, 255, 20, 0.08);
+            padding: 14px;
+            position: relative;
+        }
+
+        .scores-section::before {
+            content: '// INTERNALS';
+            position: absolute;
+            top: -10px;
+            left: 10px;
+            font-family: var(--terminal-font);
+            font-size: 0.75rem;
+            color: rgba(57, 255, 20, 0.35);
+            background: rgba(5, 10, 5, 0.99);
+            padding: 0 8px;
+        }
+
+        /* ---- END SEM INPUT BOX (replacing slider) ---- */
+        .endsem-section {
+            margin-bottom: 14px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 229, 255, 0.12);
+            padding: 14px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .endsem-section::before {
+            content: '// END SEM';
+            position: absolute;
+            top: -10px;
+            left: 10px;
+            font-family: var(--terminal-font);
+            font-size: 0.75rem;
+            color: rgba(0, 229, 255, 0.4);
+            background: rgba(5, 10, 5, 0.99);
+            padding: 0 8px;
+        }
+
+        .endsem-section:hover {
+            border-color: rgba(0, 229, 255, 0.25);
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.05);
+        }
+
+        .endsem-section .input-group {
+            position: relative;
+        }
+
+        .endsem-section label {
+            color: var(--crt-cyan);
+            text-shadow: 0 0 5px rgba(0, 229, 255, 0.3);
+        }
+
+        .endsem-section input[type="number"] {
+            border-color: rgba(0, 229, 255, 0.2);
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+        }
+
+        .endsem-section input[type="number"]:focus {
+            border-color: var(--crt-cyan);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.2), inset 0 0 10px rgba(0, 229, 255, 0.03);
+        }
+
+        /* ---- OUTPUT ROW — ENHANCED ---- */
+        .output-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 16px;
+            border: 1px solid var(--border-green);
+            background: linear-gradient(135deg, rgba(57, 255, 20, 0.03), rgba(0, 229, 255, 0.02));
+            margin-top: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .output-row::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--crt-green), var(--crt-cyan), transparent);
+            animation: output-shine 4s linear infinite;
+        }
+
+        @keyframes output-shine {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .score-box label {
+            font-size: 0.75rem;
+        }
+
+        .score-val {
+            font-family: var(--pixel-font);
+            font-size: 1.3rem;
+            color: var(--crt-green);
+            text-shadow: 0 0 10px var(--crt-green);
+            margin-top: 3px;
+            transition: all 0.3s ease;
+        }
+
+        .grade-badge {
+            width: 60px;
+            height: 60px;
+            border: 2px solid var(--border-green);
+            background: rgba(0, 0, 0, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: var(--pixel-font);
+            font-size: 1.5rem;
+            color: var(--crt-green);
+            text-shadow: 0 0 12px var(--crt-green);
+            transition: all 0.4s ease;
+            position: relative;
+            animation: badge-pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes badge-pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 5px var(--glow-green);
+            }
+
+            50% {
+                box-shadow: 0 0 18px var(--glow-green);
+            }
+        }
+
+        /* ============================================
+           RESULT OVERLAY SCREEN
+           ============================================ */
+        #result-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 9000;
+            background: rgba(0, 0, 0, 0.95);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+
+        #result-screen.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .result-container {
+            text-align: center;
+            position: relative;
+            z-index: 2;
+            animation: result-zoom 0.5s ease-out;
+            padding: 20px;
+        }
+
+        @keyframes result-zoom {
+            0% {
+                transform: scale(0.5) rotateY(15deg);
+                opacity: 0;
+            }
+
+            60% {
+                transform: scale(1.05) rotateY(-2deg);
+            }
+
+            100% {
+                transform: scale(1) rotateY(0deg);
+                opacity: 1;
+            }
+        }
+
+        .result-ascii-border {
+            font-family: var(--terminal-font);
+            font-size: 1.1rem;
+            color: var(--crt-green);
+            text-shadow: 0 0 8px var(--crt-green);
+            white-space: pre;
+            line-height: 1.3;
+        }
+
+        .result-sgpa-big {
+            font-family: var(--pixel-font);
+            font-size: 6rem;
+            color: var(--crt-green);
+            text-shadow:
+                0 0 30px var(--crt-green),
+                0 0 80px rgba(57, 255, 20, 0.4),
+                0 0 120px rgba(57, 255, 20, 0.2);
+            margin: 20px 0;
+            animation: result-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes result-pulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.03);
+            }
+        }
+
+        .result-grade-text {
+            font-family: var(--pixel-font);
+            font-size: 1rem;
+            letter-spacing: 5px;
+            margin-bottom: 15px;
+        }
+
+        .result-stats {
+            font-family: var(--terminal-font);
+            font-size: 1.2rem;
+            color: var(--crt-amber);
+            text-shadow: 0 0 5px rgba(255, 176, 0, 0.3);
+            line-height: 2;
+            margin: 15px 0;
+        }
+
+        .result-bar {
+            width: 300px;
+            height: 16px;
+            border: 1px solid var(--crt-green);
+            margin: 15px auto;
+            background: rgba(0, 0, 0, 0.5);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .result-bar-fill {
+            height: 100%;
+            background: var(--crt-green);
+            box-shadow: 0 0 10px var(--crt-green);
+            width: 0%;
+            transition: width 1.5s ease-in-out;
+        }
+
+        .btn-close-result {
+            font-family: var(--pixel-font);
+            font-size: 0.6rem;
+            padding: 14px 30px;
+            background: transparent;
+            border: 2px solid var(--crt-green);
+            color: var(--crt-green);
+            cursor: pointer;
+            margin-top: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px var(--glow-green);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-close-result::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -60%;
+            width: 30%;
+            height: 200%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: skewX(-20deg);
+            transition: left 0.5s ease;
+        }
+
+        .btn-close-result:hover::after {
+            left: 130%;
+        }
+
+        .btn-close-result:hover {
+            background: var(--crt-green);
+            color: #000;
+            box-shadow: 0 0 25px rgba(57, 255, 20, 0.4);
+        }
+
+        /* ---- PARTICLES CANVAS ---- */
+        #particles-canvas {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        #result-particles {
+            position: fixed;
+            inset: 0;
+            z-index: 8999;
+            pointer-events: none;
+        }
+
+        /* ============================================
+           MARQUEE TICKER
+           ============================================ */
+        .ticker-bar {
+            border-top: 1px solid var(--border-green);
+            border-bottom: 1px solid var(--border-green);
+            padding: 8px 0;
+            margin-bottom: 25px;
+            overflow: hidden;
+            white-space: nowrap;
+            animation: ticker-appear 0.5s ease-out 0.2s both;
+        }
+
+        @keyframes ticker-appear {
+            0% {
+                opacity: 0;
+                height: 0;
+                padding: 0;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+
+        .ticker-content {
+            display: inline-block;
+            animation: ticker-scroll 25s linear infinite;
+            font-family: var(--terminal-font);
+            font-size: 1rem;
+            color: var(--crt-cyan);
+            text-shadow: 0 0 5px var(--crt-cyan);
+        }
+
+        @keyframes ticker-scroll {
+            0% {
+                transform: translateX(100vw);
+            }
+
+            100% {
+                transform: translateX(-100%);
+            }
+        }
+
+        /* ============================================
+           FOOTER
+           ============================================ */
+        .footer {
+            text-align: center;
+            padding: 30px 0 10px;
+            font-family: var(--terminal-font);
+            font-size: 0.9rem;
+            color: rgba(57, 255, 20, 0.3);
+            border-top: 1px solid rgba(57, 255, 20, 0.08);
+            margin-top: 40px;
+        }
+
+        .footer .year-tag {
+            color: var(--crt-amber);
+            text-shadow: 0 0 5px rgba(255, 176, 0, 0.2);
+        }
+
+        /* ============================================
+           GLITCH EFFECT (for result screen)
+           ============================================ */
+        .glitch {
+            position: relative;
+        }
+
+        .glitch::before,
+        .glitch::after {
+            content: attr(data-text);
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .glitch::before {
+            color: var(--crt-cyan);
+            z-index: -1;
+            animation: glitch-1 0.3s infinite;
+        }
+
+        .glitch::after {
+            color: var(--crt-magenta);
+            z-index: -2;
+            animation: glitch-2 0.3s infinite;
+        }
+
+        @keyframes glitch-1 {
+
+            0%,
+            100% {
+                clip-path: inset(40% -6px 20% 0);
+                transform: translate(-3px, 0);
+            }
+
+            20% {
+                clip-path: inset(10% -6px 60% 0);
+                transform: translate(3px, 0);
+            }
+
+            40% {
+                clip-path: inset(70% -6px 5% 0);
+                transform: translate(-2px, 0);
+            }
+
+            60% {
+                clip-path: inset(30% -6px 40% 0);
+                transform: translate(2px, 0);
+            }
+
+            80% {
+                clip-path: inset(50% -6px 20% 0);
+                transform: translate(-1px, 0);
+            }
+        }
+
+        @keyframes glitch-2 {
+
+            0%,
+            100% {
+                clip-path: inset(20% -6px 50% 0);
+                transform: translate(3px, 0);
+            }
+
+            20% {
+                clip-path: inset(60% -6px 10% 0);
+                transform: translate(-3px, 0);
+            }
+
+            40% {
+                clip-path: inset(5% -6px 70% 0);
+                transform: translate(2px, 0);
+            }
+
+            60% {
+                clip-path: inset(40% -6px 30% 0);
+                transform: translate(-2px, 0);
+            }
+
+            80% {
+                clip-path: inset(25% -6px 45% 0);
+                transform: translate(1px, 0);
+            }
+        }
+
+        /* ============================================
+           TYPING CURSOR
+           ============================================ */
+        .typing-cursor::after {
+            content: '█';
+            animation: blink-cursor 0.6s step-end infinite;
+            color: var(--crt-green);
+        }
+
+        /* ============================================
+           SCROLL REVEAL ANIMATION
+           ============================================ */
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.6s ease, transform 0.6s ease;
+        }
+
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* ============================================
+           RESPONSIVE — FULLY MOBILE OPTIMIZED
+           ============================================ */
+        @media (max-width: 900px) {
+            .grid {
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 20px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px 12px 60px;
+            }
+
+            .hud {
+                flex-direction: column;
+                text-align: center;
+                padding: 18px 15px;
+                gap: 15px;
+            }
+
+            .hud-titles h1 {
+                font-size: 0.85rem;
+                letter-spacing: 2px;
+            }
+
+            .hud-titles .subtitle {
+                font-size: 0.95rem;
+                white-space: normal;
+                animation: none;
+            }
+
+            .master-sgpa {
+                font-size: 2.8rem;
+            }
+
+            .master-sgpa-box {
+                min-width: unset;
+                width: 100%;
+            }
+
+            .master-label {
+                font-size: 0.4rem;
+                letter-spacing: 3px;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .controls>div {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .btn-retro {
+                width: 100%;
+                text-align: center;
+                padding: 14px 15px;
+                font-size: 0.6rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+                gap: 18px;
+            }
+
+            .card-inner {
+                padding: 16px;
+            }
+
+            .input-row {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .scores-section {
+                grid-template-columns: 1fr;
+                gap: 10px;
+                padding: 12px;
+            }
+
+            .output-row {
+                padding: 12px;
+            }
+
+            .grade-badge {
+                width: 50px;
+                height: 50px;
+                font-size: 1.2rem;
+            }
+
+            .result-sgpa-big {
+                font-size: 3rem;
+            }
+
+            .result-container {
+                padding: 15px;
+            }
+
+            .result-ascii-border {
+                font-size: 0.55rem;
+            }
+
+            .result-bar {
+                width: 80%;
+                max-width: 280px;
+            }
+
+            .result-stats {
+                font-size: 1rem;
+            }
+
+            .btn-close-result {
+                font-size: 0.5rem;
+                padding: 12px 20px;
+            }
+
+            .status-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 10px 15px;
+                gap: 6px;
+                font-size: 0.9rem;
+            }
+
+            .ticker-bar {
+                margin-bottom: 18px;
+            }
+
+            .ticker-content {
+                font-size: 0.85rem;
+            }
+
+            .version-tag {
+                font-size: 0.45rem;
+            }
+        }
+
+        @media (max-width: 420px) {
+            .container {
+                padding: 10px 8px 50px;
+            }
+
+            .hud {
+                padding: 14px 10px;
+            }
+
+            .hud-titles h1 {
+                font-size: 0.7rem;
+                letter-spacing: 1px;
+            }
+
+            .master-sgpa {
+                font-size: 2.2rem;
+            }
+
+            .card-inner {
+                padding: 12px;
+            }
+
+            .card-number {
+                font-size: 0.5rem;
+            }
+
+            label {
+                font-size: 0.8rem;
+            }
+
+            input[type="text"],
+            input[type="number"] {
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+
+            .score-val {
+                font-size: 1rem;
+            }
+
+            .result-sgpa-big {
+                font-size: 2.5rem;
+            }
+
+            .result-ascii-border {
+                font-size: 0.45rem;
+            }
+
+            .result-grade-text {
+                font-size: 0.7rem;
+                letter-spacing: 2px;
+            }
+        }
+
+        /* ============================================
+           SHAKE ANIMATION
+           ============================================ */
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            10%,
+            30%,
+            50%,
+            70%,
+            90% {
+                transform: translateX(-3px);
+            }
+
+            20%,
+            40%,
+            60%,
+            80% {
+                transform: translateX(3px);
+            }
+        }
+
+        .shake {
+            animation: shake 0.5s ease-in-out;
+        }
+
+        /* ============================================
+           PROGRESS BAR ANIMATION
+           ============================================ */
+        .progress-bar-container {
+            width: 300px;
+            margin: 20px auto;
+            border: 1px solid var(--crt-green);
+            padding: 3px;
+        }
+
+        .progress-bar-inner {
+            height: 12px;
+            background: var(--crt-green);
+            box-shadow: 0 0 8px var(--crt-green);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        /* card remove anim */
+        .card.removing {
+            animation: card-remove 0.4s ease-in forwards;
+        }
+
+        @keyframes card-remove {
+            0% {
+                opacity: 1;
+                transform: scale(1) rotateX(0deg);
+            }
+
+            50% {
+                opacity: 0.5;
+                transform: scale(0.9) rotateX(5deg);
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(0.7) rotateX(15deg) translateY(40px);
+            }
+        }
+
+        /* ============================================
+           DATA HEX DECORATION
+           ============================================ */
+        .hex-decoration {
+            font-family: var(--terminal-font);
+            font-size: 0.7rem;
+            color: rgba(57, 255, 20, 0.12);
+            text-align: right;
+            margin-top: 6px;
+            letter-spacing: 1px;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        /* ============================================
+           CARD STATUS INDICATOR
+           ============================================ */
+        .card-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--terminal-font);
+            font-size: 0.75rem;
+            color: rgba(57, 255, 20, 0.4);
+            margin-top: 8px;
+        }
+
+        .card-status-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--crt-green);
+            border-radius: 50%;
+            box-shadow: 0 0 6px var(--crt-green);
+            animation: dot-pulse 2s ease-in-out infinite;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- BOOT SCREEN -->
+    <div id="boot-screen">
+        <div id="boot-text"></div>
+    </div>
+
+    <!-- STATIC NOISE -->
+    <div class="static-noise"></div>
+
+    <!-- MATRIX RAIN -->
+    <canvas id="matrix-canvas"></canvas>
+
+    <!-- FLOATING GRID -->
+    <div class="grid-bg"></div>
+
+    <!-- FLOATING ORBS -->
+    <div class="floating-orbs">
+        <div class="orb"></div>
+        <div class="orb"></div>
+        <div class="orb"></div>
+        <div class="orb"></div>
+    </div>
+
+    <!-- SCAN BEAM -->
+    <div class="scan-beam"></div>
+
+    <!-- BACKGROUND PARTICLES -->
+    <canvas id="particles-canvas"></canvas>
+
+    <!-- RESULT SCREEN PARTICLES -->
+    <canvas id="result-particles"></canvas>
+
+    <!-- RESULT OVERLAY -->
+    <div id="result-screen">
+        <div class="result-container">
+            <div class="result-ascii-border" id="result-ascii-top"></div>
+            <div class="result-sgpa-big glitch" id="result-sgpa-val" data-text="0.00">0.00</div>
+            <div class="result-grade-text" id="result-grade-label"></div>
+            <div class="result-bar">
+                <div class="result-bar-fill" id="result-bar-fill"></div>
+            </div>
+            <div class="result-stats" id="result-stats"></div>
+            <div class="result-ascii-border" id="result-ascii-bottom"></div>
+            <button class="btn-close-result" id="btn-close-result" onclick="closeResult()">[ Press to Continue
+                ]</button>
+        </div>
+    </div>
+
+    <!-- MAIN CONTENT (hidden until boot) -->
+    <div class="container" id="main-content" style="display:none;">
+
+        <!-- HUD -->
+        <div class="hud" id="main-hud">
+            <div class="hud-titles">
+                <h1>S.G.P.A.<br>Retro Engine</h1>
+                <div class="subtitle">// Real-Time Dynamic Grade Processor</div>
+                <div class="version-tag">SYS v3.0 // ACTIVE</div>
+            </div>
+            <div class="master-sgpa-box">
+                <div class="master-sgpa" id="master-sgpa">0.00</div>
+                <div class="master-label">Cumulative SGPA</div>
+            </div>
+        </div>
+
+        <!-- TICKER -->
+        <div class="ticker-bar">
+            <div class="ticker-content">
+                ★ SGPA RETRO ENGINE v3.0 ONLINE ★ ALL SYSTEMS NOMINAL ★ REAL-TIME PROCESSING ACTIVE ★ ADD MODULES →
+                INPUT SCORES → LAUNCH CALCULATION → VIEW RESULTS ★ MAXIMUM GRADE PRECISION GUARANTEED ★ SYSTEM
+                INTEGRITY: 100% ★ SGPA RETRO ENGINE v3.0 ONLINE ★
+            </div>
+        </div>
+
+        <!-- STATUS BAR -->
+        <div class="status-bar" id="status-bar">
+            <div class="stat"><span class="dot"></span> SYSTEM: ONLINE</div>
+            <div class="stat" id="stat-modules">MODULES: 0</div>
+            <div class="stat" id="stat-credits">CREDITS: 0</div>
+            <div class="stat" id="stat-time">TIME: --:--:--</div>
+        </div>
+
+        <!-- CONTROLS -->
+        <div class="controls">
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                <button class="btn-retro btn-add" id="btn-add-module" onclick="createCard()">+ Add Module</button>
+                <button class="btn-retro btn-reset" id="btn-reset" onclick="resetAll()">Reset All</button>
+            </div>
+            <button class="btn-retro btn-calculate" id="btn-launch" onclick="launchCalculation()">▶ Launch Calc</button>
+        </div>
+
+        <!-- CARD GRID -->
+        <div class="grid" id="card-grid"></div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            ═══════════════════════════════════════<br>
+            S.G.P.A. RETRO ENGINE // <span class="year-tag">© 1997-2026</span><br>
+            "Your grades, computed with style."<br>
+            ═══════════════════════════════════════
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // GLOBAL STATE
+        // ============================================
+        let cardCount = 0;
+        let audioCtx = null;
+
+        function getAudioCtx() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            return audioCtx;
+        }
+
+        // ============================================
+        // SOUND FX (8-bit style)
+        // ============================================
+        function playBeep(freq = 800, duration = 0.08, type = 'square') {
+            try {
+                const ctx = getAudioCtx();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, ctx.currentTime);
+                gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + duration);
+            } catch (e) { }
+        }
+
+        function playSuccess() {
+            playBeep(523, 0.1); // C
+            setTimeout(() => playBeep(659, 0.1), 100); // E
+            setTimeout(() => playBeep(784, 0.15), 200); // G
+            setTimeout(() => playBeep(1047, 0.25), 300); // C5
+        }
+
+        function playBoot() {
+            playBeep(200, 0.15, 'sawtooth');
+            setTimeout(() => playBeep(400, 0.15, 'sawtooth'), 150);
+            setTimeout(() => playBeep(600, 0.2, 'sawtooth'), 300);
+        }
+
+        function playDelete() {
+            playBeep(400, 0.08);
+            setTimeout(() => playBeep(200, 0.12), 80);
+        }
+
+        function playKeyClick() {
+            playBeep(800 + Math.random() * 200, 0.03, 'sine');
+        }
+
+        // ============================================
+        // BOOT SEQUENCE
+        // ============================================
+        const bootLines = [
+            "SGPA RETRO ENGINE v3.0",
+            "═══════════════════════════════════",
+            "",
+            "BIOS CHECK............ OK",
+            "MEMORY TEST........... 640K FOUND",
+            "GRADE PROCESSOR....... INITIALIZED",
+            "CRT DISPLAY........... ACTIVE",
+            "MATRIX RAIN........... ENABLED",
+            "PARTICLE SYS.......... ONLINE",
+            "LOADING MODULES....... ████████████",
+            "",
+            "ALL SYSTEMS GO.",
+            "",
+            "> PRESS ANY KEY TO CONTINUE_"
+        ];
+
+        async function runBoot() {
+            const bootText = document.getElementById('boot-text');
+            const bootScreen = document.getElementById('boot-screen');
+
+            for (let i = 0; i < bootLines.length; i++) {
+                const line = bootLines[i];
+                for (let j = 0; j < line.length; j++) {
+                    bootText.innerHTML += line[j];
+                    if (Math.random() > 0.6) await sleep(15);
+                    else await sleep(30);
+                }
+                bootText.innerHTML += '\n';
+                await sleep(100);
+            }
+
+            // Wait for keypress or click
+            await new Promise(resolve => {
+                const handler = () => {
+                    playBoot();
+                    document.removeEventListener('keydown', handler);
+                    document.removeEventListener('click', handler);
+                    document.removeEventListener('touchstart', handler);
+                    resolve();
+                };
+                document.addEventListener('keydown', handler);
+                document.addEventListener('click', handler);
+                document.addEventListener('touchstart', handler);
+            });
+
+            bootScreen.classList.add('fade-out');
+            await sleep(800);
+            bootScreen.style.display = 'none';
+            document.getElementById('main-content').style.display = 'block';
+
+            // Initialize cards with staggered animation
+            for (let i = 0; i < 4; i++) {
+                await sleep(200);
+                createCard();
+            }
+
+            // Start live clock
+            updateClock();
+            setInterval(updateClock, 1000);
+
+            // Start particles
+            initParticles();
+
+            // Start matrix rain
+            initMatrixRain();
+
+            // Setup scroll reveal
+            setupScrollReveal();
+        }
+
+        function sleep(ms) {
+            return new Promise(r => setTimeout(r, ms));
+        }
+
+        // ============================================
+        // MATRIX RAIN BACKGROUND
+        // ============================================
+        function initMatrixRain() {
+            const canvas = document.getElementById('matrix-canvas');
+            const ctx = canvas.getContext('2d');
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()アイウエオカキクケコ█▓▒░';
+            const fontSize = 14;
+            const columns = Math.floor(canvas.width / fontSize);
+            const drops = Array(columns).fill(1);
+
+            function drawMatrix() {
+                ctx.fillStyle = 'rgba(10, 10, 10, 0.06)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                ctx.fillStyle = '#39ff14';
+                ctx.font = fontSize + 'px monospace';
+
+                for (let i = 0; i < drops.length; i++) {
+                    const char = chars[Math.floor(Math.random() * chars.length)];
+                    ctx.globalAlpha = Math.random() * 0.5 + 0.1;
+                    ctx.fillText(char, i * fontSize, drops[i] * fontSize);
+
+                    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                        drops[i] = 0;
+                    }
+                    drops[i]++;
+                }
+                ctx.globalAlpha = 1;
+
+                requestAnimationFrame(drawMatrix);
+            }
+
+            drawMatrix();
+        }
+
+        // ============================================
+        // SCROLL REVEAL
+        // ============================================
+        function setupScrollReveal() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            // Observe all cards as they get added
+            const mutationObs = new MutationObserver((mutations) => {
+                mutations.forEach(mutation => {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.classList && node.classList.contains('card')) {
+                            // Cards animate via card-enter, but we can use reveal for other elements
+                        }
+                    });
+                });
+            });
+
+            mutationObs.observe(document.getElementById('card-grid'), { childList: true });
+        }
+
+        // ============================================
+        // LIVE CLOCK
+        // ============================================
+        function updateClock() {
+            const now = new Date();
+            const ts = now.toTimeString().split(' ')[0];
+            const el = document.getElementById('stat-time');
+            if (el) el.textContent = 'TIME: ' + ts;
+        }
+
+        // ============================================
+        // GRADE ENGINE
+        // ============================================
+        function getGradePoint(marks) {
+            if (marks >= 90) return 10;
+            if (marks >= 80) return 9;
+            if (marks >= 70) return 8;
+            if (marks >= 60) return 7;
+            if (marks >= 50) return 6;
+            if (marks >= 40) return 5;
+            return 0;
+        }
+
+        function getGradeLetter(gp) {
+            const map = { 10: 'O', 9: 'A+', 8: 'A', 7: 'B+', 6: 'B', 5: 'C', 0: 'F' };
+            return map[gp] || 'F';
+        }
+
+        function getPerformanceLabel(sgpa) {
+            if (sgpa >= 9.5) return { text: "LEGENDARY", color: "var(--crt-magenta)" };
+            if (sgpa >= 9.0) return { text: "OUTSTANDING", color: "var(--crt-cyan)" };
+            if (sgpa >= 8.5) return { text: "EXCELLENT", color: "var(--crt-green)" };
+            if (sgpa >= 8.0) return { text: "VERY GOOD", color: "var(--crt-green)" };
+            if (sgpa >= 7.0) return { text: "GOOD", color: "var(--crt-amber)" };
+            if (sgpa >= 6.0) return { text: "ABOVE AVERAGE", color: "var(--crt-amber)" };
+            if (sgpa >= 5.0) return { text: "AVERAGE", color: "var(--crt-pink)" };
+            if (sgpa > 0) return { text: "NEEDS IMPROVEMENT", color: "var(--crt-red)" };
+            return { text: "NO DATA", color: "var(--crt-amber)" };
+        }
+
+        // Generate random hex string for decoration
+        function randomHex(len) {
+            let hex = '';
+            for (let i = 0; i < len; i++) {
+                hex += '0123456789ABCDEF'[Math.floor(Math.random() * 16)];
+            }
+            return hex;
+        }
+
+        function calculateEngine() {
+            let totalCreditPoints = 0;
+            let totalCredits = 0;
+            const cards = document.querySelectorAll('.card');
+
+            cards.forEach(card => {
+                const credits = parseFloat(card.querySelector('.inp-credits').value) || 0;
+                const mse = parseFloat(card.querySelector('.inp-mse').value) || 0;
+                const other = parseFloat(card.querySelector('.inp-other').value) || 0;
+                const paperInput = card.querySelector('.inp-paper-num');
+
+                let paperScore = parseFloat(paperInput.value) || 0;
+
+                // Math Engine
+                const convertedMSE = mse * 0.75;
+                const internals = convertedMSE + other;
+                const convertedEndSem = paperScore / 2;
+                const grandTotal = internals + convertedEndSem;
+                const gp = getGradePoint(grandTotal);
+
+                // Update card outputs
+                card.querySelector('.out-total').innerText = grandTotal.toFixed(2);
+                const badge = card.querySelector('.grade-badge');
+                badge.innerText = getGradeLetter(gp);
+
+                // Update hex decoration
+                const hexEl = card.querySelector('.hex-decoration');
+                if (hexEl) {
+                    hexEl.textContent = `0x${randomHex(4)} :: ${grandTotal.toFixed(2)} :: GP${gp}`;
+                }
+
+                // Color coding with smooth transitions
+                if (gp >= 9) {
+                    badge.style.color = 'var(--crt-cyan)';
+                    badge.style.borderColor = 'var(--crt-cyan)';
+                    badge.style.boxShadow = '0 0 20px rgba(0,229,255,0.4)';
+                    badge.style.textShadow = '0 0 12px var(--crt-cyan)';
+                } else if (gp >= 8) {
+                    badge.style.color = 'var(--crt-green)';
+                    badge.style.borderColor = 'var(--crt-green)';
+                    badge.style.boxShadow = '0 0 20px var(--glow-green)';
+                    badge.style.textShadow = '0 0 12px var(--crt-green)';
+                } else if (gp > 0) {
+                    badge.style.color = 'var(--crt-amber)';
+                    badge.style.borderColor = 'var(--crt-amber)';
+                    badge.style.boxShadow = '0 0 12px rgba(255,176,0,0.25)';
+                    badge.style.textShadow = '0 0 10px rgba(255,176,0,0.5)';
+                } else {
+                    badge.style.color = 'var(--crt-red)';
+                    badge.style.borderColor = 'var(--crt-red)';
+                    badge.style.boxShadow = '0 0 12px rgba(255,0,60,0.25)';
+                    badge.style.textShadow = '0 0 10px rgba(255,0,60,0.5)';
+                }
+
+                if (credits > 0) {
+                    totalCreditPoints += (gp * credits);
+                    totalCredits += credits;
+                }
+            });
+
+            // Update Master SGPA
+            const masterSgpa = totalCredits > 0 ? (totalCreditPoints / totalCredits) : 0;
+            const hud = document.getElementById('master-sgpa');
+            hud.innerText = masterSgpa.toFixed(2);
+
+            const perf = getPerformanceLabel(masterSgpa);
+            hud.style.color = perf.color;
+            hud.style.textShadow = `0 0 20px ${perf.color}, 0 0 60px ${perf.color}`;
+
+            // Update status bar
+            document.getElementById('stat-modules').textContent = 'MODULES: ' + cards.length;
+            document.getElementById('stat-credits').textContent = 'CREDITS: ' + totalCredits;
+
+            return { sgpa: masterSgpa, totalCredits, totalCreditPoints, modules: cards.length };
+        }
+
+        // ============================================
+        // CREATE CARD — ENHANCED
+        // ============================================
+        function createCard() {
+            cardCount++;
+            const id = cardCount;
+            const grid = document.getElementById('card-grid');
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.style.animationDelay = `${(id % 4) * 0.1}s`;
+            card.innerHTML = `
+            <div class="card-corner card-corner--tl"></div>
+            <div class="card-corner card-corner--tr"></div>
+            <div class="card-corner card-corner--bl"></div>
+            <div class="card-corner card-corner--br"></div>
+            <div class="card-inner">
+                <div class="card-header">
+                    <div class="card-number">MODULE #${String(id).padStart(2, '0')}</div>
+                    <button class="btn-delete" onclick="removeCard(this)">[ DEL ]</button>
+                </div>
+
+                <div class="input-row">
+                    <div class="input-group">
+                        <label>Module Name</label>
+                        <input type="text" placeholder="e.g. Data Structures">
+                    </div>
+                    <div class="input-group">
+                        <label>Credits</label>
+                        <input type="number" class="inp-credits" min="0" value="3" oninput="calculateEngine()">
+                    </div>
+                </div>
+
+                <div class="scores-section">
+                    <div class="input-group">
+                        <label>MSE (/40)</label>
+                        <input type="number" class="inp-mse" min="0" max="40" placeholder="0" oninput="calculateEngine()">
+                    </div>
+                    <div class="input-group">
+                        <label>Other (/30)</label>
+                        <input type="number" class="inp-other" min="0" max="30" placeholder="0" oninput="calculateEngine()">
+                    </div>
+                </div>
+
+                <div class="endsem-section">
+                    <div class="input-group">
+                        <label>End Sem Paper (/80)</label>
+                        <input type="number" class="inp-paper-num" min="0" max="80" value="0" placeholder="Enter marks" oninput="calculateEngine()">
+                    </div>
+                </div>
+
+                <div class="output-row">
+                    <div class="score-box">
+                        <label>Grand Total</label>
+                        <div class="score-val out-total">0.00</div>
+                    </div>
+                    <div class="grade-badge">F</div>
+                </div>
+
+                <div class="hex-decoration">0x${randomHex(4)} :: 0.00 :: GP0</div>
+                <div class="card-status">
+                    <span class="card-status-dot"></span>
+                    READY
+                </div>
+            </div>
+        `;
+            grid.appendChild(card);
+            playBeep(600 + id * 50, 0.06);
+            calculateEngine();
+
+            // Smooth scroll to the new card on mobile
+            if (window.innerWidth <= 768) {
+                setTimeout(() => {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300);
+            }
+        }
+
+        // ============================================
+        // REMOVE CARD
+        // ============================================
+        function removeCard(btn) {
+            const card = btn.closest('.card');
+            playDelete();
+            card.classList.add('removing');
+            setTimeout(() => {
+                card.remove();
+                calculateEngine();
+            }, 400);
+        }
+
+        // ============================================
+        // RESET ALL
+        // ============================================
+        function resetAll() {
+            const grid = document.getElementById('card-grid');
+            const cards = grid.querySelectorAll('.card');
+            if (cards.length === 0) return;
+
+            playBeep(300, 0.15, 'sawtooth');
+
+            cards.forEach((card, i) => {
+                setTimeout(() => {
+                    card.classList.add('removing');
+                    setTimeout(() => card.remove(), 400);
+                }, i * 80);
+            });
+
+            setTimeout(() => {
+                cardCount = 0;
+                calculateEngine();
+                // Re-add 4 cards
+                for (let i = 0; i < 4; i++) {
+                    setTimeout(() => createCard(), i * 200);
+                }
+            }, cards.length * 80 + 500);
+        }
+
+        // ============================================
+        // LAUNCH ANIMATED CALCULATION
+        // ============================================
+        async function launchCalculation() {
+            const btn = document.getElementById('btn-launch');
+            btn.disabled = true;
+            btn.textContent = '■ PROCESSING...';
+
+            // Screen shake
+            document.body.classList.add('shake');
+            setTimeout(() => document.body.classList.remove('shake'), 500);
+
+            playBeep(100, 0.3, 'sawtooth');
+
+            // Quick calculation flicker
+            const hud = document.getElementById('master-sgpa');
+            const flickerCount = 20;
+            for (let i = 0; i < flickerCount; i++) {
+                hud.innerText = (Math.random() * 10).toFixed(2);
+                hud.style.color = ['var(--crt-green)', 'var(--crt-cyan)', 'var(--crt-amber)', 'var(--crt-magenta)'][Math.floor(Math.random() * 4)];
+                playBeep(200 + Math.random() * 600, 0.03);
+                await sleep(50);
+            }
+
+            const result = calculateEngine();
+            btn.disabled = false;
+            btn.textContent = '▶ Launch Calc';
+
+            // Show result screen
+            showResult(result);
+        }
+
+        // ============================================
+        // RESULT SCREEN
+        // ============================================
+        function showResult(result) {
+            const screen = document.getElementById('result-screen');
+            const sgpaEl = document.getElementById('result-sgpa-val');
+            const gradeLabel = document.getElementById('result-grade-label');
+            const stats = document.getElementById('result-stats');
+            const bar = document.getElementById('result-bar-fill');
+            const asciiTop = document.getElementById('result-ascii-top');
+            const asciiBottom = document.getElementById('result-ascii-bottom');
+
+            const perf = getPerformanceLabel(result.sgpa);
+
+            asciiTop.textContent =
+                `╔══════════════════════════════════════════╗
+║     ★  S.G.P.A. COMPUTATION RESULT  ★    ║
+╠══════════════════════════════════════════╣`;
+
+            asciiBottom.textContent =
+                `╠══════════════════════════════════════════╣
+║       RETRO ENGINE v3.0 // COMPLETE      ║
+╚══════════════════════════════════════════╝`;
+
+            sgpaEl.innerText = result.sgpa.toFixed(2);
+            sgpaEl.setAttribute('data-text', result.sgpa.toFixed(2));
+            sgpaEl.style.color = perf.color;
+            sgpaEl.style.textShadow = `0 0 30px ${perf.color}, 0 0 80px ${perf.color}`;
+
+            gradeLabel.innerText = `[ ${perf.text} ]`;
+            gradeLabel.style.color = perf.color;
+            gradeLabel.style.textShadow = `0 0 10px ${perf.color}`;
+
+            stats.innerHTML =
+                `MODULES PROCESSED .... ${result.modules}<br>` +
+                `TOTAL CREDITS ....... ${result.totalCredits}<br>` +
+                `CREDIT POINTS ....... ${result.totalCreditPoints.toFixed(1)}<br>` +
+                `SYSTEM STATUS ....... VERIFIED ✓`;
+
+            screen.classList.add('active');
+            playSuccess();
+
+            // Animate bar
+            setTimeout(() => {
+                bar.style.width = `${(result.sgpa / 10) * 100}%`;
+
+                // Color the bar
+                if (result.sgpa >= 8.5) {
+                    bar.style.background = 'var(--crt-green)';
+                    bar.style.boxShadow = '0 0 12px var(--crt-green)';
+                } else if (result.sgpa >= 7) {
+                    bar.style.background = 'var(--crt-amber)';
+                    bar.style.boxShadow = '0 0 12px var(--crt-amber)';
+                } else {
+                    bar.style.background = 'var(--crt-red)';
+                    bar.style.boxShadow = '0 0 12px var(--crt-red)';
+                }
+            }, 300);
+
+            // Start result particles
+            startResultParticles(perf.color);
+        }
+
+        function closeResult() {
+            const screen = document.getElementById('result-screen');
+            screen.classList.remove('active');
+            document.getElementById('result-bar-fill').style.width = '0%';
+            playBeep(400, 0.1);
+            stopResultParticles();
+        }
+
+        // ============================================
+        // BACKGROUND PARTICLE SYSTEM
+        // ============================================
+        let particleAnimId = null;
+
+        function initParticles() {
+            const canvas = document.getElementById('particles-canvas');
+            const ctx = canvas.getContext('2d');
+            let particles = [];
+            let mouseX = -1000;
+            let mouseY = -1000;
+
+            function resize() {
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            // Mouse interaction
+            document.addEventListener('mousemove', (e) => {
+                mouseX = e.clientX;
+                mouseY = e.clientY;
+            });
+
+            // Create particles — more of them
+            for (let i = 0; i < 80; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 0.4,
+                    vy: (Math.random() - 0.5) * 0.4,
+                    size: Math.random() * 2.5 + 0.5,
+                    opacity: Math.random() * 0.4 + 0.05,
+                    color: Math.random() > 0.8 ? 'rgba(0, 229, 255,' : 'rgba(57, 255, 20,',
+                    pulseSpeed: Math.random() * 0.02 + 0.01,
+                    pulsePhase: Math.random() * Math.PI * 2
+                });
+            }
+
+            let frame = 0;
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                frame++;
+
+                particles.forEach(p => {
+                    // Pulsing opacity
+                    const pulse = Math.sin(frame * p.pulseSpeed + p.pulsePhase) * 0.15 + 0.15;
+
+                    ctx.beginPath();
+                    ctx.rect(p.x, p.y, p.size, p.size);
+                    ctx.fillStyle = `${p.color} ${p.opacity + pulse})`;
+                    ctx.fill();
+
+                    // Mouse repulsion
+                    const dxM = p.x - mouseX;
+                    const dyM = p.y - mouseY;
+                    const distM = Math.sqrt(dxM * dxM + dyM * dyM);
+                    if (distM < 150) {
+                        const force = (150 - distM) / 150 * 0.5;
+                        p.vx += (dxM / distM) * force;
+                        p.vy += (dyM / distM) * force;
+                    }
+
+                    // Dampen velocity
+                    p.vx *= 0.99;
+                    p.vy *= 0.99;
+
+                    p.x += p.vx;
+                    p.y += p.vy;
+
+                    if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                    if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+                });
+
+                // Draw connections
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 130) {
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.strokeStyle = `rgba(57, 255, 20, ${0.08 * (1 - dist / 130)})`;
+                            ctx.lineWidth = 0.5;
+                            ctx.stroke();
+                        }
+                    }
+                }
+
+                particleAnimId = requestAnimationFrame(draw);
+            }
+
+            draw();
+        }
+
+        // ============================================
+        // RESULT PARTICLE SYSTEM (confetti-style)
+        // ============================================
+        let resultParticleAnimId = null;
+        let resultParticles = [];
+
+        function startResultParticles(accentColor) {
+            const canvas = document.getElementById('result-particles');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            resultParticles = [];
+
+            const colors = ['#39ff14', '#00e5ff', '#ff00ff', '#ffb000', '#ff6ec7', '#4d4dff'];
+
+            for (let i = 0; i < 120; i++) {
+                resultParticles.push({
+                    x: canvas.width / 2 + (Math.random() - 0.5) * 300,
+                    y: canvas.height / 2,
+                    vx: (Math.random() - 0.5) * 12,
+                    vy: (Math.random() - 0.5) * 12 - 4,
+                    size: Math.random() * 6 + 2,
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    life: 1,
+                    decay: Math.random() * 0.008 + 0.002,
+                    rotation: Math.random() * 360,
+                    rotSpeed: (Math.random() - 0.5) * 12,
+                    shape: Math.random() > 0.5 ? 'rect' : 'diamond'
+                });
+            }
+
+            function drawResult() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                resultParticles.forEach(p => {
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.rotation * Math.PI / 180);
+                    ctx.globalAlpha = p.life;
+                    ctx.fillStyle = p.color;
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = p.color;
+
+                    if (p.shape === 'rect') {
+                        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+                    } else {
+                        ctx.beginPath();
+                        ctx.moveTo(0, -p.size);
+                        ctx.lineTo(p.size, 0);
+                        ctx.lineTo(0, p.size);
+                        ctx.lineTo(-p.size, 0);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.08; // gravity
+                    p.vx *= 0.995;
+                    p.life -= p.decay;
+                    p.rotation += p.rotSpeed;
+                });
+
+                resultParticles = resultParticles.filter(p => p.life > 0);
+
+                if (resultParticles.length > 0) {
+                    resultParticleAnimId = requestAnimationFrame(drawResult);
+                }
+            }
+
+            drawResult();
+        }
+
+        function stopResultParticles() {
+            if (resultParticleAnimId) {
+                cancelAnimationFrame(resultParticleAnimId);
+                resultParticleAnimId = null;
+            }
+            const canvas = document.getElementById('result-particles');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // ============================================
+        // KEYBOARD SHORTCUT: ESC to close result
+        // ============================================
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeResult();
+            }
+        });
+
+        // ============================================
+        // INIT
+        // ============================================
+        window.addEventListener('DOMContentLoaded', () => {
+            runBoot();
+        });
+    </script>
+</body>
+
+</html>
